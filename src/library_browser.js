@@ -849,11 +849,14 @@ mergeInto(LibraryManager.library, {
       } else {
         if (onerror) Runtime.dynCall('viii', onerror, [handle, arg, http.status]);
       }
+
+      delete Browser.requests[handle];
     };
 
     // ERROR
     http.onerror = function http_onerror(e) {
       if (onerror) Runtime.dynCall('viii', onerror, [handle, arg, http.status]);
+      delete Browser.requests[handle];
     };
 
     // PROGRESS
