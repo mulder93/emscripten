@@ -892,6 +892,10 @@ mergeInto(LibraryManager.library, {
     var _url = Pointer_stringify(url);
     var _request = Pointer_stringify(request);
     var _param = Pointer_stringify(param);
+    if (_request == "GET") {
+      _url += "?";
+      _url += _param;
+    }
 
     var http = new XMLHttpRequest();
     http.open(_request, _url, true);
