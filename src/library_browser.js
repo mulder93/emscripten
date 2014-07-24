@@ -888,10 +888,15 @@ mergeInto(LibraryManager.library, {
     return handle;
   },
 
-  emscripten_async_wget2_data: function(url, request, param, arg, free, onload, onerror, onprogress) {
+  emscripten_async_wget2_data: function(url, request, param, paramlen, arg, free, onload, onerror, onprogress) {
     var _url = Pointer_stringify(url);
     var _request = Pointer_stringify(request);
-    var _param = Pointer_stringify(param);
+
+    if (paramlen < 0) {
+      paramlen = _param.length;
+    }
+    var _param = Pointer_stringify(param, paramlen);
+
     if (_request == "GET") {
       _url += "?";
       _url += _param;
@@ -935,7 +940,7 @@ mergeInto(LibraryManager.library, {
     if (_request == "POST") {
       //Send the proper header information along with the request
       http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-      http.setRequestHeader("Content-length", _param.length);
+      http.setRequestHeader("Content-length", paramlen);
       http.setRequestHeader("Connection", "close");
       http.send(_param);
     } else {

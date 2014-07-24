@@ -369,6 +369,8 @@ int emscripten_async_wget2(const char* url, const char* file,  const char* reque
  * @param requesttype 'GET' or 'POST'
  * @param param If is post request, param is the post parameter
  *              like key=value&key2=value2.
+ * @param paramlen Length of param. Or set it to negative value to calculate len automaticaly by param value
+                This parameter is needed to correctly use request parameter with '\0' symbol
  * @param arg It is a pointer will be pass to the callback
  * @param free Tells the runtime whether to free the returned buffer
                after onload is complete. If false freeing the buffer is the receiver's
@@ -388,7 +390,7 @@ int emscripten_async_wget2(const char* url, const char* file,  const char* reque
  *
  * @return Handle to request
  */
-int emscripten_async_wget2_data(const char* url, const char* requesttype, const char* param, void *arg, int free, void (*onload)(unsigned, void*, void*, unsigned), void (*onerror)(unsigned, void*, int, const char*), void (*onprogress)(unsigned, void*, int, int));
+int emscripten_async_wget2_data(const char* url, const char* requesttype, const char* param, int paramlen, void *arg, int free, void (*onload)(unsigned, void*, void*, unsigned), void (*onerror)(unsigned, void*, int, const char*), void (*onprogress)(unsigned, void*, int, int));
 
 /*
  * Abort async request
