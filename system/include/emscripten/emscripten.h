@@ -438,7 +438,7 @@ void emscripten_async_wget_data(const char* url, void *arg, em_async_wget_onload
  * and file if is a success, the progress value during progress
  * and http status code if is an error.
  *
- * @return Handle to request
+ * @return Handle to request. It can be used to abort request
  */
 typedef void (*em_async_wget2_onload_func)(unsigned, void*, const char*);
 typedef void (*em_async_wget2_onstatus_func)(unsigned, void*, int);
@@ -470,7 +470,7 @@ int emscripten_async_wget2(const char* url, const char* file,  const char* reque
  * If any error occurred 'onerror' will called with the HTTP status code
    and a string with the status description.
  *
- * @return Handle to request
+ * @return Handle to request. It can be used to abort request
  */
 typedef void (*em_async_wget2_data_onload_func)(unsigned, void*, void *, unsigned*);
 typedef void (*em_async_wget2_data_onerror_func)(unsigned, void*, int, const char*);
