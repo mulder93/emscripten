@@ -867,6 +867,11 @@ mergeInto(LibraryManager.library, {
       }
     };
 
+    // ABORT
+    http.onabort = function http_onabort(e) {
+      delete Browser.requests[handle];
+    };
+
     // Useful because the browser can limit the number of redirection
     try {
       if (http.channel instanceof Ci.nsIHttpChannel)
@@ -910,16 +915,25 @@ mergeInto(LibraryManager.library, {
       } else {
         if (onerror) Runtime.dynCall('viiii', onerror, [handle, arg, http.status, http.statusText]);
       }
+      delete Browser.requests[handle];
     };
 
     // ERROR
     http.onerror = function http_onerror(e) {
-      if (onerror) Runtime.dynCall('viiii', onerror, [handle, arg, http.status, http.statusText]);
+      if (onerror) {
+        Runtime.dynCall('viiii', onerror, [handle, arg, http.status, http.statusText]);
+      }
+      delete Browser.requests[handle];
     };
 
     // PROGRESS
     http.onprogress = function http_onprogress(e) {
       if (onprogress) Runtime.dynCall('viiii', onprogress, [handle, arg, e.loaded, e.lengthComputable || e.lengthComputable === undefined ? e.total : 0]);
+    };
+
+    // ABORT
+    http.onabort = function http_onabort(e) {
+      delete Browser.requests[handle];
     };
 
     // Useful because the browser can limit the number of redirection
@@ -948,7 +962,6 @@ mergeInto(LibraryManager.library, {
     if (http)
     {
       http.abort();
-      delete Browser.requests[handle];
     }
   },
 
