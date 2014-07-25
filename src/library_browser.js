@@ -824,12 +824,23 @@ mergeInto(LibraryManager.library, {
     }, true /* no need for run dependency, this is async but will not do any prepare etc. step */ );
   },
 
-  emscripten_async_wget2: function(url, file, request, param, arg, onload, onerror, onprogress) {
+  emscripten_async_wget2: function(url, file, request, param, paramlen, arg, onload, onerror, onprogress) {
     var _url = Pointer_stringify(url);
     var _file = Pointer_stringify(file);
     var _request = Pointer_stringify(request);
     var _param = Pointer_stringify(param);
     var index = _file.lastIndexOf('/');
+
+    if (paramlen < 0) {
+      paramlen = _param.length;
+    }
+
+    if (_request == "GET") {
+      _url += "?";
+      _url += Pointer_stringify(param, paramlen);
+    } else {
+      var _param = HEAPU8.subarray(param, param + paramlen);
+    }
 
     var http = new XMLHttpRequest();
     http.open(_request, _url, true);
@@ -855,7 +866,9 @@ mergeInto(LibraryManager.library, {
 
     // ERROR
     http.onerror = function http_onerror(e) {
-      if (onerror) Runtime.dynCall('viii', onerror, [handle, arg, http.status]);
+      if (onerror) {
+        Runtime.dynCall('viii', onerror, [handle, arg, http.status])
+      }
       delete Browser.requests[handle];
     };
 
@@ -881,7 +894,7 @@ mergeInto(LibraryManager.library, {
     if (_request == "POST") {
       //Send the proper header information along with the request
       http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-      http.setRequestHeader("Content-length", _param.length);
+      http.setRequestHeader("Content-length", paramlen);
       http.setRequestHeader("Connection", "close");
       http.send(_param);
     } else {
@@ -900,11 +913,12 @@ mergeInto(LibraryManager.library, {
     if (paramlen < 0) {
       paramlen = _param.length;
     }
-    var _param = Pointer_stringify(param, paramlen);
 
     if (_request == "GET") {
       _url += "?";
-      _url += _param;
+      _url += Pointer_stringify(param, paramlen);
+    } else {
+      var _param = HEAPU8.subarray(param, param + paramlen);
     }
 
     var http = new XMLHttpRequest();
