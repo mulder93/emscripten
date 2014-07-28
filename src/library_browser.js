@@ -780,12 +780,12 @@ mergeInto(LibraryManager.library, {
       }
     },
 
-    requests: {},
-    nextRequestHandle: 0,
+    wgetRequests: {},
+    nextWgetRequestHandle: 0,
 
-    getNextRequestHandle: function() {
-      var handle = Browser.nextRequestHandle;
-      Browser.nextRequestHandle++;
+    getNextWgetRequestHandle: function() {
+      var handle = Browser.nextWgetRequestHandle;
+      Browser.nextWgetRequestHandle++;
       return handle;
     }
   },
@@ -846,7 +846,7 @@ mergeInto(LibraryManager.library, {
     http.open(_request, _url, true);
     http.responseType = 'arraybuffer';
 
-    var handle = Browser.getNextRequestHandle();
+    var handle = Browser.getNextWgetRequestHandle();
 
     // LOAD
     http.onload = function http_onload(e) {
@@ -861,15 +861,13 @@ mergeInto(LibraryManager.library, {
         if (onerror) Runtime.dynCall('viii', onerror, [handle, arg, http.status]);
       }
 
-      delete Browser.requests[handle];
+      delete Browser.wgetRequests[handle];
     };
 
     // ERROR
     http.onerror = function http_onerror(e) {
-      if (onerror) {
-        Runtime.dynCall('viii', onerror, [handle, arg, http.status])
-      }
-      delete Browser.requests[handle];
+      if (onerror) Runtime.dynCall('viii', onerror, [handle, arg, http.status]);
+      delete Browser.wgetRequests[handle];
     };
 
     // PROGRESS
@@ -882,7 +880,7 @@ mergeInto(LibraryManager.library, {
 
     // ABORT
     http.onabort = function http_onabort(e) {
-      delete Browser.requests[handle];
+      delete Browser.wgetRequests[handle];
     };
 
     // Useful because the browser can limit the number of redirection
@@ -901,7 +899,7 @@ mergeInto(LibraryManager.library, {
       http.send(null);
     }
 
-    Browser.requests[handle] = http;
+    Browser.wgetRequests[handle] = http;
 
     return handle;
   },
@@ -925,7 +923,7 @@ mergeInto(LibraryManager.library, {
     http.open(_request, _url, true);
     http.responseType = 'arraybuffer';
 
-    var handle = Browser.getNextRequestHandle();
+    var handle = Browser.getNextWgetRequestHandle();
 
     // LOAD
     http.onload = function http_onload(e) {
@@ -938,7 +936,7 @@ mergeInto(LibraryManager.library, {
       } else {
         if (onerror) Runtime.dynCall('viiii', onerror, [handle, arg, http.status, http.statusText]);
       }
-      delete Browser.requests[handle];
+      delete Browser.wgetRequests[handle];
     };
 
     // ERROR
@@ -946,7 +944,7 @@ mergeInto(LibraryManager.library, {
       if (onerror) {
         Runtime.dynCall('viiii', onerror, [handle, arg, http.status, http.statusText]);
       }
-      delete Browser.requests[handle];
+      delete Browser.wgetRequests[handle];
     };
 
     // PROGRESS
@@ -956,7 +954,7 @@ mergeInto(LibraryManager.library, {
 
     // ABORT
     http.onabort = function http_onabort(e) {
-      delete Browser.requests[handle];
+      delete Browser.wgetRequests[handle];
     };
 
     // Useful because the browser can limit the number of redirection
@@ -975,15 +973,14 @@ mergeInto(LibraryManager.library, {
       http.send(null);
     }
 
-    Browser.requests[handle] = http;
+    Browser.wgetRequests[handle] = http;
 
     return handle;
   },
 
   emscripten_async_wget2_abort: function(handle) {
-    var http = Browser.requests[handle];
-    if (http)
-    {
+    var http = Browser.wgetRequests[handle];
+    if (http) {
       http.abort();
     }
   },

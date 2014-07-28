@@ -445,7 +445,7 @@ void emscripten_async_wget_data(const char* url, void *arg, em_async_wget_onload
 typedef void (*em_async_wget2_onload_func)(unsigned, void*, const char*);
 typedef void (*em_async_wget2_onstatus_func)(unsigned, void*, int);
 
-int emscripten_async_wget2(const char* url, const char* file,  const char* requesttype, const char* param, void *arg, em_async_wget2_onload_func onload, em_async_wget2_onstatus_func onerror, em_async_wget2_onstatus_func onprogress);
+int emscripten_async_wget2(const char* url, const char* file,  const char* requesttype, const char* param, const unsigned paramlen, void *arg, em_async_wget2_onload_func onload, em_async_wget2_onstatus_func onerror, em_async_wget2_onstatus_func onprogress);
 
 /*
  * More feature-complete version of emscripten_async_wget_data. Note:
@@ -476,11 +476,11 @@ int emscripten_async_wget2(const char* url, const char* file,  const char* reque
  *
  * @return Handle to request. It can be used to abort request
  */
-typedef void (*em_async_wget2_data_onload_func)(unsigned, void*, void *, unsigned*);
+typedef void (*em_async_wget2_data_onload_func)(unsigned, void*, void *, unsigned);
 typedef void (*em_async_wget2_data_onerror_func)(unsigned, void*, int, const char*);
 typedef void (*em_async_wget2_data_onprogress_func)(unsigned, void*, int, int);
 
-int emscripten_async_wget2_data(const char* url, const char* requesttype, const char* param, void *arg, int free, em_async_wget2_data_onload_func onload, em_async_wget2_data_onerror_func onerror, em_async_wget2_data_onprogress_func onprogress);
+int emscripten_async_wget2_data(const char* url, const char* requesttype, const char* param, const unsigned paramlen, void *arg, int free, em_async_wget2_data_onload_func onload, em_async_wget2_data_onerror_func onerror, em_async_wget2_data_onprogress_func onprogress);
 
 /*
  * Abort async request
