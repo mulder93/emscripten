@@ -1201,6 +1201,11 @@ mergeInto(LibraryManager.library, {
     throw 'SimulateInfiniteLoop';
   },
 
+  emscripten_force_exit: function(status) {
+    Module['noExitRuntime'] = false;
+    Module['exit'](status);
+  },
+
   emscripten_hide_mouse: function() {
     var styleSheet = document.styleSheets[0];
     var rules = styleSheet.cssRules;

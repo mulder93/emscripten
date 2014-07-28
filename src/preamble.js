@@ -427,6 +427,7 @@ var cwrap, ccall;
   //   alert(my_function(99, 12));
   //
   cwrap = function cwrap(ident, returnType, argTypes) {
+    argTypes = argTypes || [];
     var cfunc = getCFunc(ident);
     // When the function takes numbers and returns a number, we can just return
     // the original function
@@ -777,6 +778,25 @@ function stringToUTF32(str, outPtr) {
 Module['stringToUTF32'] = stringToUTF32;
 
 function demangle(func) {
+  var hasLibcxxabi = !!Module['___cxa_demangle'];
+  if (hasLibcxxabi) {
+    try {
+      var buf = _malloc(func.length);
+      writeStringToMemory(func.substr(1), buf);
+      var status = _malloc(4);
+      var ret = Module['___cxa_demangle'](buf, 0, 0, status);
+      if (getValue(status, 'i32') === 0 && ret) {
+        return Pointer_stringify(ret);
+      }
+      // otherwise, libcxxabi failed, we can try ours which may return a partial result
+    } catch(e) {
+      // failure when using libcxxabi, we can try ours which may return a partial result
+    } finally {
+      if (buf) _free(buf);
+      if (status) _free(status);
+      if (ret) _free(ret);
+    }
+  }
   var i = 3;
   // params, etc.
   var basicTypes = {
@@ -908,6 +928,7 @@ function demangle(func) {
       return ret + flushList();
     }
   }
+  var final = func;
   try {
     // Special-case the entry point, since its name differs from other name mangling.
     if (func == 'Object._main' || func == '_main') {
@@ -921,20 +942,41 @@ function demangle(func) {
       case 'n': return 'operator new()';
       case 'd': return 'operator delete()';
     }
-    return parse();
+    final = parse();
   } catch(e) {
-    return func;
+    final += '?';
   }
+  if (final.indexOf('?') >= 0 && !hasLibcxxabi) {
+    Runtime.warnOnce('warning: a problem occurred in builtin C++ name demangling; build with  -s DEMANGLE_SUPPORT=1  to link in libcxxabi demangling');
+  }
+  return final;
 }
 
 function demangleAll(text) {
   return text.replace(/__Z[\w\d_]+/g, function(x) { var y = demangle(x); return x === y ? x : (x + ' [' + y + ']') });
 }
 
-function stackTrace() {
-  var stack = new Error().stack;
-  return stack ? demangleAll(stack) : '(no stack trace available)'; // Stack trace is not available at least on IE10 and Safari 6.
+function jsStackTrace() {
+  var err = new Error();
+  if (!err.stack) {
+    // IE10+ special cases: It does have callstack info, but it is only populated if an Error object is thrown,
+    // so try that as a special-case.
+    try {
+      throw new Error(0);
+    } catch(e) {
+      err = e;
+    }
+    if (!err.stack) {
+      return '(no stack trace available)';
+    }
+  }
+  return err.stack.toString();
 }
+
+function stackTrace() {
+  return demangleAll(jsStackTrace());
+}
+Module['stackTrace'] = stackTrace;
 
 // Memory management
 

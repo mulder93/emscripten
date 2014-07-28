@@ -466,6 +466,7 @@ process(sys.argv[1])
     js_engines = filter(lambda engine: engine not in self.banned_js_engines, js_engines)
     if len(js_engines) == 0: return self.skip('No JS engine present to run this test with. Check %s and the paths therein.' % EM_CONFIG)
     for engine in js_engines:
+      #print engine
       js_output = self.run_generated_code(engine, filename + '.o.js', args, output_nicerizer=output_nicerizer, assert_returncode=assert_returncode)
       self.assertContained(expected_output, js_output.replace('\r\n', '\n'))
       self.assertNotContained('ERROR', js_output)
@@ -735,7 +736,7 @@ class BrowserCore(RunnerCore):
 def get_bullet_library(runner_core, use_cmake):
   if use_cmake:
     configure_commands = ['cmake', '.']
-    configure_args = ['-DBUILD_DEMOS=OFF', '-DBUILD_EXTRAS=OFF']
+    configure_args = ['-DBUILD_DEMOS=OFF', '-DBUILD_EXTRAS=OFF', '-DUSE_GLUT=OFF']
     # Depending on whether 'configure' or 'cmake' is used to build, Bullet places output files in different directory structures.
     generated_libs = [os.path.join('src', 'BulletDynamics', 'libBulletDynamics.a'),
                       os.path.join('src', 'BulletCollision', 'libBulletCollision.a'),
