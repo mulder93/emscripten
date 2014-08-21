@@ -1221,9 +1221,10 @@ var LibrarySDL = {
 
     // capture all key events. we just keep down and up, but also capture press to prevent default actions
     if (!Module['doNotCaptureKeyboard']) {
-      document.addEventListener("keydown", SDL.receiveEvent);
-      document.addEventListener("keyup", SDL.receiveEvent);
-      document.addEventListener("keypress", SDL.receiveEvent);
+      var keyboardListeningElement = Module['keyboardListeningElement'] || document;
+      keyboardListeningElement.addEventListener("keydown", SDL.receiveEvent);
+      keyboardListeningElement.addEventListener("keyup", SDL.receiveEvent);
+      keyboardListeningElement.addEventListener("keypress", SDL.receiveEvent);
       window.addEventListener("focus", SDL.receiveEvent);
       window.addEventListener("blur", SDL.receiveEvent);
       document.addEventListener("visibilitychange", SDL.receiveEvent);
@@ -1325,6 +1326,7 @@ var LibrarySDL = {
     return buf;
   },
 
+  SDL_SetVideoMode__deps: ['$GL'],
   SDL_SetVideoMode: function(width, height, depth, flags) {
     ['touchstart', 'touchend', 'touchmove', 'mousedown', 'mouseup', 'mousemove', 'DOMMouseScroll', 'mousewheel', 'wheel', 'mouseout'].forEach(function(event) {
       Module['canvas'].addEventListener(event, SDL.receiveEvent, true);
@@ -1778,7 +1780,7 @@ var LibrarySDL = {
   },
 
   SDL_GetTicks: function() {
-    return Math.floor(Date.now() - SDL.startTime);
+    return (Date.now() - SDL.startTime)|0;
   },
 
   SDL_PollEvent: function(ptr) {
@@ -2078,6 +2080,10 @@ var LibrarySDL = {
     var rwops = _SDL_RWFromFile(filename);
     var result = _IMG_Load_RW(rwops, 1);
     return result;
+  },
+
+  IMG_Quit: function() {
+    Module.print('IMG_Quit called (and ignored)');
   },
 
   // SDL_Audio
@@ -2818,17 +2824,21 @@ var LibrarySDL = {
 
   TTF_FontAscent: function(font) {
     var fontData = SDL.fonts[font];
-    return Math.floor(fontData.size*0.98); // XXX
+    return (fontData.size*0.98)|0; // XXX
   },
 
   TTF_FontDescent: function(font) {
     var fontData = SDL.fonts[font];
-    return Math.floor(fontData.size*0.02); // XXX
+    return (fontData.size*0.02)|0; // XXX
   },
 
   TTF_FontHeight: function(font) {
     var fontData = SDL.fonts[font];
     return fontData.size;
+  },
+
+  TTF_Quit: function() {
+    Module.print('TTF_Quit called (and ignored)');
   },
 
   // SDL gfx

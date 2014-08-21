@@ -14,6 +14,7 @@ import os, sys, json, optparse, subprocess, re, time, multiprocessing, string, l
 from tools import shared
 from tools import jsrun, cache as cache_module, tempfiles
 from tools.response_file import read_response_file
+from tools.shared import WINDOWS
 
 __rootpath__ = os.path.abspath(os.path.dirname(__file__))
 def path_from_root(*pathelems):
@@ -465,8 +466,8 @@ def emscript(infile, settings, outfile, libraries=[], compiler_engine=None,
     basic_float_vars = ['NaN', 'Infinity']
 
     if forwarded_json['Types']['preciseI64MathUsed'] or \
-       forwarded_json['Functions']['libraryFunctions'].get('llvm_cttz_i32') or \
-       forwarded_json['Functions']['libraryFunctions'].get('llvm_ctlz_i32'):
+       forwarded_json['Functions']['libraryFunctions'].get('_llvm_cttz_i32') or \
+       forwarded_json['Functions']['libraryFunctions'].get('_llvm_ctlz_i32'):
       basic_vars += ['cttz_i8', 'ctlz_i8']
 
     if settings.get('DLOPEN_SUPPORT'):
@@ -529,7 +530,7 @@ def emscript(infile, settings, outfile, libraries=[], compiler_engine=None,
       pass
     # If no named globals, only need externals
     global_vars = map(lambda g: g['name'], filter(lambda g: settings['NAMED_GLOBALS'] or g.get('external') or g.get('unIndexable'), forwarded_json['Variables']['globals'].values()))
-    global_funcs = ['_' + key for key, value in forwarded_json['Functions']['libraryFunctions'].iteritems() if value != 2]
+    global_funcs = [key for key, value in forwarded_json['Functions']['libraryFunctions'].iteritems() if value != 2]
     def math_fix(g):
       return g if not g.startswith('Math_') else g.split('_')[1]
     asm_global_funcs = ''.join(['  var ' + g.replace('.', '_') + '=global.' + g + ';\n' for g in maths]) + \
@@ -708,13 +709,15 @@ Runtime.getTempRet0 = asm['getTempRet0'];
     funcs_js[i] = None
     funcs_js_item = indexize(funcs_js_item)
     funcs_js_item = blockaddrsize(funcs_js_item)
+    if WINDOWS: funcs_js_item = funcs_js_item.replace('\r\n', '\n') # Normalize to UNIX line endings, otherwise writing to text file will duplicate \r\n to \r\r\n!
     outfile.write(funcs_js_item)
   funcs_js = None
 
-  outfile.write(indexize(post))
-  if DEBUG: logging.debug('  emscript: phase 3 took %s seconds' % (time.time() - t))
-
+  indexized = indexize(post)
+  if WINDOWS: indexized = indexized.replace('\r\n', '\n') # Normalize to UNIX line endings, otherwise writing to text file will duplicate \r\n to \r\r\n!
+  outfile.write(indexized)
   outfile.close()
+  if DEBUG: logging.debug('  emscript: phase 3 took %s seconds' % (time.time() - t))
 
 # emscript_fast: emscript'en code using the 'fast' compilation path, using
 #                an LLVM backend
@@ -1062,10 +1065,13 @@ def emscript_fast(infile, settings, outfile, libraries=[], compiler_engine=None,
       basic_vars = ['STACKTOP', 'STACK_MAX', 'tempDoublePtr', 'ABORT']
       basic_float_vars = ['NaN', 'Infinity']
 
-      if metadata.get('preciseI64MathUsed') or \
-         forwarded_json['Functions']['libraryFunctions'].get('llvm_cttz_i32') or \
-         forwarded_json['Functions']['libraryFunctions'].get('llvm_ctlz_i32'):
+      if metadata.get('preciseI64MathUsed'):
         basic_vars += ['cttz_i8', 'ctlz_i8']
+      else:
+        if forwarded_json['Functions']['libraryFunctions'].get('_llvm_cttz_i32'):
+          basic_vars += ['cttz_i8']
+        if forwarded_json['Functions']['libraryFunctions'].get('_llvm_ctlz_i32'):
+          basic_vars += ['ctlz_i8']
 
       if settings.get('DLOPEN_SUPPORT'):
         for sig in last_forwarded_json['Functions']['tables'].iterkeys():
@@ -1132,7 +1138,7 @@ def emscript_fast(infile, settings, outfile, libraries=[], compiler_engine=None,
         pass
       # If no named globals, only need externals
       global_vars = metadata['externs'] #+ forwarded_json['Variables']['globals']
-      global_funcs = list(set(['_' + key for key, value in forwarded_json['Functions']['libraryFunctions'].iteritems() if value != 2]).difference(set(global_vars)).difference(implemented_functions))
+      global_funcs = list(set([key for key, value in forwarded_json['Functions']['libraryFunctions'].iteritems() if value != 2]).difference(set(global_vars)).difference(implemented_functions))
       def math_fix(g):
         return g if not g.startswith('Math_') else g.split('_')[1]
       asm_global_funcs = ''.join(['  var ' + g.replace('.', '_') + '=global.' + g + ';\n' for g in maths]) + \
@@ -1201,7 +1207,8 @@ def emscript_fast(infile, settings, outfile, libraries=[], compiler_engine=None,
     var ret = 0;
     ret = STACKTOP;
     STACKTOP = (STACKTOP + size)|0;
-  ''' + ('STACKTOP = (STACKTOP + 3)&-4;' if settings['TARGET_X86'] else 'STACKTOP = (STACKTOP + 7)&-8;') + '''
+  ''' + ('STACKTOP = (STACKTOP + 3)&-4;' if settings['TARGET_X86'] else 'STACKTOP = (STACKTOP + 7)&-8;\n') +
+        ('if ((STACKTOP|0) >= (STACK_MAX|0)) abort();\n' if settings['ASSERTIONS'] else '') + '''
     return ret|0;
   }
   function stackSave() {
@@ -1316,9 +1323,11 @@ def emscript_fast(infile, settings, outfile, libraries=[], compiler_engine=None,
       outfile.write("var SYMBOL_TABLE = %s;" % json.dumps(symbol_table).replace('"', ''))
 
     for i in range(len(funcs_js)): # do this loop carefully to save memory
+      if WINDOWS: funcs_js[i] = funcs_js[i].replace('\r\n', '\n') # Normalize to UNIX line endings, otherwise writing to text file will duplicate \r\n to \r\r\n!
       outfile.write(funcs_js[i])
     funcs_js = None
 
+    if WINDOWS: post = post.replace('\r\n', '\n') # Normalize to UNIX line endings, otherwise writing to text file will duplicate \r\n to \r\r\n!
     outfile.write(post)
 
     outfile.close()

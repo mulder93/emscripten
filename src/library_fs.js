@@ -161,7 +161,7 @@ mergeInto(LibraryManager.library, {
     lookupNode: function(parent, name) {
       var err = FS.mayLookup(parent);
       if (err) {
-        throw new FS.ErrnoError(err);
+        throw new FS.ErrnoError(err, parent);
       }
       var hash = FS.hashName(parent.id, name);
 #if CASE_INSENSITIVE_FS
@@ -832,6 +832,9 @@ mergeInto(LibraryManager.library, {
     readlink: function(path) {
       var lookup = FS.lookupPath(path);
       var link = lookup.node;
+      if (!link) {
+        throw new FS.ErrnoError(ERRNO_CODES.ENOENT);
+      }
       if (!link.node_ops.readlink) {
         throw new FS.ErrnoError(ERRNO_CODES.EINVAL);
       }
@@ -1247,7 +1250,7 @@ mergeInto(LibraryManager.library, {
         random_device = function() { return require('crypto').randomBytes(1)[0]; };
       } else {
         // default for ES5 platforms
-        random_device = function() { return Math.floor(Math.random()*256); };
+        random_device = function() { return (Math.random()*256)|0; };
       }
       FS.createDevice('/dev', 'random', random_device);
       FS.createDevice('/dev', 'urandom', random_device);
@@ -1296,14 +1299,18 @@ mergeInto(LibraryManager.library, {
     },
     ensureErrnoError: function() {
       if (FS.ErrnoError) return;
-      FS.ErrnoError = function ErrnoError(errno) {
-        this.errno = errno;
-        for (var key in ERRNO_CODES) {
-          if (ERRNO_CODES[key] === errno) {
-            this.code = key;
-            break;
+      FS.ErrnoError = function ErrnoError(errno, node) {
+        this.node = node;
+        this.setErrno = function(errno) {
+          this.errno = errno;
+          for (var key in ERRNO_CODES) {
+            if (ERRNO_CODES[key] === errno) {
+              this.code = key;
+              break;
+            }
           }
-        }
+        };
+        this.setErrno(errno);
         this.message = ERRNO_MESSAGES[errno];
 #if ASSERTIONS
         if (this.stack) this.stack = demangleAll(this.stack);
@@ -1548,7 +1555,7 @@ mergeInto(LibraryManager.library, {
           return undefined;
         }
         var chunkOffset = idx % this.chunkSize;
-        var chunkNum = Math.floor(idx / this.chunkSize);
+        var chunkNum = (idx / this.chunkSize)|0;
         return this.getter(chunkNum)[chunkOffset];
       }
       LazyUint8Array.prototype.setDataGetter = function LazyUint8Array_setDataGetter(getter) {

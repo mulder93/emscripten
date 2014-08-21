@@ -131,6 +131,7 @@ void http::runRequest(const char* page, int assync) {
 */
 void http::abortRequest() {
 	emscripten_async_wget2_abort(_handle);
+	_status = ST_ABORTED;
 }
 
 /**
@@ -249,7 +250,8 @@ void wait_http(void* request) {
     	} else {
 			if (req->getStatus() == http::ST_OK) { 
 				printf("Success Request n°%d : %s\n",req->getId(),req->getContent());
-	
+			} else if (req->getStatus() == http::ST_ABORTED) {
+				printf("Aborted Request n°%d", req->getId());
 			} else {
 				printf("Error Request n°%d : %s\n",req->getId(), req->getError());
     		}

@@ -26,6 +26,7 @@ def path_from_root(*pathelems):
 sys.path += [path_from_root(''), path_from_root('third_party/websockify')]
 import tools.shared
 from tools.shared import *
+from tools.line_endings import check_line_endings
 
 # Utils
 
@@ -268,6 +269,7 @@ process(sys.argv[1])
     except:
       cwd = None
     os.chdir(self.get_dir())
+    assert(check_line_endings(filename) == 0) # Make sure that we produced proper line endings to the .js file we are about to run.
     run_js(filename, engine, args, check_timeout, stdout=open(stdout, 'w'), stderr=open(stderr, 'w'), assert_returncode=assert_returncode)
     if cwd is not None:
       os.chdir(cwd)
@@ -354,7 +356,7 @@ process(sys.argv[1])
     build_dir = self.get_build_dir()
     output_dir = self.get_dir()
 
-    cache_name = name + str(Building.COMPILER_TEST_OPTS) + cache_name_extra + (self.env.get('EMCC_LLVM_TARGET') or '_') + (self.env.get('EMCC_FAST_COMPILER') or '_')
+    cache_name = name + ','.join(filter(lambda opt: len(opt) < 10, Building.COMPILER_TEST_OPTS)) + '_' + hashlib.md5(str(Building.COMPILER_TEST_OPTS)).hexdigest() + cache_name_extra + (self.env.get('EMCC_LLVM_TARGET') or '_') + (self.env.get('EMCC_FAST_COMPILER') or '_')
 
     valid_chars = "_%s%s" % (string.ascii_letters, string.digits)
     cache_name = ''.join([(c if c in valid_chars else '_') for c in cache_name])
@@ -524,6 +526,7 @@ def server_func(dir, q):
   class TestServerHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
       if 'report_' in self.path:
+        print '[server response:', self.path, ']'
         q.put(self.path)
       else:
         # Use SimpleHTTPServer default file serving operation for GET.
@@ -559,6 +562,7 @@ class BrowserCore(RunnerCore):
     time.sleep(0.1)
 
   def run_browser(self, html_file, message, expectedResult=None):
+    print '[browser launch:', html_file, ']'
     if expectedResult is not None:
       try:
         queue = multiprocessing.Queue()
@@ -688,7 +692,7 @@ class BrowserCore(RunnerCore):
 ''' % basename)
 
   def btest(self, filename, expected=None, reference=None, force_c=False, reference_slack=0, manual_reference=False, post_build=None,
-      args=[], outfile='test.html', message='.', also_proxied=False): # TODO: use in all other tests
+      args=[], outfile='test.html', message='.', also_proxied=False, url_suffix=''): # TODO: use in all other tests
     # if we are provided the source and not a path, use that
     filename_is_src = '\n' in filename
     src = filename if filename_is_src else ''
@@ -714,7 +718,7 @@ class BrowserCore(RunnerCore):
     assert os.path.exists(outfile)
     if post_build: post_build()
     if type(expected) is str: expected = [expected]
-    self.run_browser(outfile, message, ['/report_result?' + e for e in expected])
+    self.run_browser(outfile + url_suffix, message, ['/report_result?' + e for e in expected])
     if also_proxied:
       print 'proxied...'
       # save non-proxied

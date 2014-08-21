@@ -175,13 +175,24 @@ function exit(status) {
   exitRuntime();
 
   if (ENVIRONMENT_IS_NODE) {
-    process['exit'](status);
+    // Work around a node.js bug where stdout buffer is not flushed at process exit:
+    // Instead of process.exit() directly, wait for stdout flush event.
+    // See https://github.com/joyent/node/issues/1669 and https://github.com/kripken/emscripten/issues/2582
+    // Workaround is based on https://github.com/RReverser/acorn/commit/50ab143cecc9ed71a2d66f78b4aec3bb2e9844f6
+    process['stdout']['once']('drain', function () {
+      process['exit'](status);
+    });
+    console.log(' '); // Make sure to print something to force the drain event to occur, in case the stdout buffer was empty.
+    // Work around another node bug where sometimes 'drain' is never fired - make another effort
+    // to emit the exit status, after a significant delay (if node hasn't fired drain by then, give up)
+    setTimeout(function() {
+      process['exit'](status);
+    }, 500);
   } else if (ENVIRONMENT_IS_SHELL && typeof quit === 'function') {
     quit(status);
-  } else {
-    // no proper way to exit with a return code, throw an exception to halt the current execution
-    throw new ExitStatus(status);
   }
+  // if we reach here, we must throw an exception to halt the current execution
+  throw new ExitStatus(status);
 }
 Module['exit'] = Module.exit = exit;
 
@@ -233,10 +244,34 @@ run();
 
 #if BUILD_AS_WORKER
 
+var messageBuffer = null;
+
+function messageResender() {
+  if (runtimeInitialized) {
+    assert(messageBuffer && messageBuffer.length > 0);
+    messageBuffer.forEach(function(message) {
+      onmessage(message);
+    });
+    messageBuffer = null;
+  } else {
+    setTimeout(messageResender, 100);
+  }
+}
+
 var buffer = 0, bufferSize = 0;
 var inWorkerCall = false, workerResponded = false, workerCallbackId = -1;
 
-onmessage = function(msg) {
+onmessage = function onmessage(msg) {
+  // if main has not yet been called (mem init file, other async things), buffer messages
+  if (!runtimeInitialized) {
+    if (!messageBuffer) {
+      messageBuffer = [];
+      setTimeout(messageResender, 100);
+    }
+    messageBuffer.push(msg);
+    return;
+  }
+
   var func = Module['_' + msg.data['funcName']];
   if (!func) throw 'invalid worker function to call: ' + msg.data['funcName'];
   var data = msg.data['data'];

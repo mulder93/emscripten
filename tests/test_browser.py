@@ -748,6 +748,30 @@ window.close = function() {
   def test_glgears_proxy(self):
     self.btest('hello_world_gles_proxy.c', reference='gears.png', args=['--proxy-to-worker', '-s', 'GL_TESTING=1'], manual_reference=True, post_build=self.post_manual_reftest)
 
+    # test noProxy option applied at runtime
+
+    # run normally (duplicates above test, but verifies we can run outside of the btest harness
+    self.run_browser('test.html', None, ['/report_result?0'])
+
+    # run with noProxy
+    self.run_browser('test.html?noProxy', None, ['/report_result?0'])
+
+    original = open('test.js').read()
+
+    def copy(to, js_mod):
+      open(to + '.html', 'w').write(open('test.html').read().replace('test.js', to + '.js'))
+      open(to + '.js', 'w').write(js_mod(open('test.js').read()))
+
+    # run with noProxy, but make main thread fail
+    copy('two', lambda original: original.replace('function _main($argc,$argv) {', 'function _main($argc,$argv) { if (ENVIRONMENT_IS_WEB) { var xhr = new XMLHttpRequest(); xhr.open("GET", "http://localhost:8888/report_result?999");xhr.send(); }'))
+    self.run_browser('two.html?noProxy', None, ['/report_result?999'])
+    self.run_browser('two.html', None, ['/report_result?0']) # this is still cool
+
+    # run without noProxy, so proxy, but make worker fail
+    copy('three', lambda original: original.replace('function _main($argc,$argv) {', 'function _main($argc,$argv) { if (ENVIRONMENT_IS_WORKER) { var xhr = new XMLHttpRequest(); xhr.open("GET", "http://localhost:8888/report_result?999");xhr.send(); }'))
+    self.run_browser('three.html', None, ['/report_result?999'])
+    self.run_browser('three.html?noProxy', None, ['/report_result?0']) # this is still cool
+
   def test_glgears_proxy_jstarget(self):
     # test .js target with --proxy-worker; emits 2 js files, client and worker
     Popen([PYTHON, EMCC, path_from_root('tests', 'hello_world_gles_proxy.c'), '-o', 'test.js', '--proxy-to-worker', '-s', 'GL_TESTING=1']).communicate()
@@ -756,7 +780,7 @@ window.close = function() {
     self.run_browser('test.html', None, '/report_result?0')
 
   def test_sdl_canvas_alpha(self):
-    self.btest('sdl_canvas_alpha.c', reference='sdl_canvas_alpha.png', reference_slack=9)
+    self.btest('sdl_canvas_alpha.c', reference='sdl_canvas_alpha.png', reference_slack=11)
 
   def test_sdl_key(self):
     for defines in [[], ['-DTEST_EMSCRIPTEN_SDL_SETEVENTHANDLER']]:
@@ -1900,6 +1924,11 @@ Module["preRun"].push(function () {
       print opts
       self.btest(path_from_root('tests', 'test_html5.c'), args=opts, expected='0')
 
+  def test_html5_webgl_create_context(self):
+    for opts in [[], ['-O2', '-g1', '--closure', '1']]:
+      print opts
+      self.btest(path_from_root('tests', 'webgl_create_context.cpp'), args=opts, expected='0')
+
   def test_sdl_touch(self):
     for opts in [[], ['-O2', '-g1', '--closure', '1']]:
       print opts
@@ -1942,3 +1971,7 @@ open(filename, 'w').write(replaced)
       self.btest(path_from_root('tests', 'codemods.cpp'), expected='121378', args=[opts, '--shell-file', 'shell.html', '--js-transform', fixer, '-s', 'PRECISE_F32=1']) # proper polyfill was enstated, then it was replaced by the fix so 0 is returned all the time, hence a different result here
       self.btest(path_from_root('tests', 'codemods.cpp'), expected='2', args=[opts, '--shell-file', 'shell.html', '--js-transform', fixer, '-s', 'PRECISE_F32=2']) # we should remove the calls to the polyfill ENTIRELY here, on the clientside, so we should NOT see any calls to fround here, and result should be like double
 
+  def test_wget(self):
+    with open(os.path.join(self.get_dir(), 'test.txt'), 'w') as f:
+      f.write('emscripten')
+    self.btest(path_from_root('tests', 'test_wget.c'), expected='1', args=['-s', 'ASYNCIFY=1'])
